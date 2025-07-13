@@ -1,4 +1,10 @@
-import { useRef, useEffect, useMemo } from 'react';
+import {
+  useRef,
+  useEffect,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 
 interface Bounds {
   minX: number;
@@ -39,7 +45,10 @@ const defaultProps: CartesianPlaneProps = {
   axisExtension: 20,
 };
 
-function CartesianPlane(passProps: Partial<CartesianPlaneProps>) {
+const CartesianPlane = forwardRef<
+  HTMLCanvasElement,
+  Partial<CartesianPlaneProps>
+>(function CartesianPlane(passProps, ref) {
   const props = useMemo(() => {
     const merged: CartesianPlaneProps = {
       ...defaultProps,
@@ -57,6 +66,13 @@ function CartesianPlane(passProps: Partial<CartesianPlaneProps>) {
   }, [passProps]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  useImperativeHandle(ref, () => {
+    if (!canvasRef.current) {
+      const dummy = document.createElement('canvas');
+      return dummy;
+    }
+    return canvasRef.current;
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -80,7 +96,7 @@ function CartesianPlane(passProps: Partial<CartesianPlaneProps>) {
   }, [props]);
 
   return <canvas ref={canvasRef} aria-label="Cartesian plane" role="img" />;
-}
+});
 
 export default CartesianPlane;
 
