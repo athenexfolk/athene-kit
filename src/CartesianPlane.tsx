@@ -1,3 +1,89 @@
+import { useRef, useEffect, useMemo } from 'react';
+
+interface Bounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+interface CartesianPlaneProps extends Bounds {
+  size: number;
+  margin: number;
+  step: number;
+  showGrid: boolean;
+  gridColor: string;
+  gridWidth: number;
+  axisColor: string;
+  axisWidth: number;
+  tickSize: number;
+  arrowHeadSize: number;
+  axisExtension: number;
+}
+
+const defaultProps: CartesianPlaneProps = {
+  size: 800,
+  margin: 50,
+  minX: -10,
+  maxX: 10,
+  minY: -10,
+  maxY: 10,
+  step: 1,
+  showGrid: true,
+  gridColor: '#ddd',
+  gridWidth: 1,
+  axisColor: '#222',
+  axisWidth: 2,
+  tickSize: 5,
+  arrowHeadSize: 10,
+  axisExtension: 20,
+};
+
+function CartesianPlane(passProps: Partial<CartesianPlaneProps>) {
+  const props = useMemo(() => {
+    const merged: CartesianPlaneProps = {
+      ...defaultProps,
+      ...passProps,
+    };
+    const adjusted = adjustSquareBound(
+      merged.minX,
+      merged.maxX,
+      merged.minY,
+      merged.maxY,
+    );
+    merged.maxX = adjusted.maxX;
+    merged.maxY = adjusted.maxY;
+    return merged;
+  }, [passProps]);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = 2.5 * (window.devicePixelRatio || 1);
+    canvas.width = props.size * dpr;
+    canvas.height = props.size * dpr;
+    canvas.style.width = `${props.size}px`;
+    canvas.style.height = `${props.size}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.reset();
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    if (props.showGrid) drawGrid(ctx, props);
+    drawAxis(ctx, props);
+    ctx.restore();
+  }, [props]);
+
+  return <canvas ref={canvasRef} aria-label="Cartesian plane" role="img" />;
+}
+
+export default CartesianPlane;
+
 function getTickPositions(min: number, max: number, step: number): number[] {
   const start = Math.ceil(min / step) * step;
   const steps = Math.floor((max - start) / step);
@@ -39,7 +125,6 @@ function drawArrow(
 function getPlaneSize(size: number, margin: number) {
   return size - margin * 2;
 }
-import { useRef, useEffect, useMemo } from 'react';
 
 function adjustSquareBound(
   minX: number,
@@ -59,46 +144,6 @@ function adjustSquareBound(
 
   return { minX, minY, maxX, maxY };
 }
-
-interface Bounds {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-}
-
-interface CartesianPlaneProps extends Bounds {
-  size: number;
-  margin: number;
-  step: number;
-  showGrid: boolean;
-  gridColor: string;
-  gridWidth: number;
-  axisColor: string;
-  axisWidth: number;
-  tickSize?: number;
-  arrowHeadSize?: number;
-  axisExtension?: number;
-  logging?: boolean;
-}
-
-const defaultProps: CartesianPlaneProps = {
-  size: 800,
-  margin: 50,
-  minX: -10,
-  maxX: 10,
-  minY: -10,
-  maxY: 10,
-  step: 1,
-  showGrid: true,
-  gridColor: '#ccc',
-  gridWidth: 1,
-  axisColor: '#222',
-  axisWidth: 2,
-  tickSize: 5,
-  arrowHeadSize: 10,
-  axisExtension: 20,
-};
 
 function drawGrid(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
   const { size, margin, minX, maxX, minY, maxY, step, gridColor, gridWidth } =
@@ -139,6 +184,11 @@ function drawTicksAndLabels(
   textAlign: CanvasTextAlign,
   textBaseline: CanvasTextBaseline,
 ) {
+  // Helper to use Unicode minus for negative numbers
+  const formatLabel = (val: number) => {
+    const str = label(val);
+    return str.replace(/^-/, '\u2212');
+  };
   ctx.textAlign = textAlign;
   ctx.textBaseline = textBaseline;
   for (const val of ticks) {
@@ -149,7 +199,7 @@ function drawTicksAndLabels(
     ctx.stroke();
     if (Math.abs(val) > 1e-8) {
       const [lx, ly] = getLabelPos(val);
-      ctx.fillText(label(val), lx, ly);
+      ctx.fillText(formatLabel(val), lx, ly);
     }
   }
 }
@@ -175,11 +225,12 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
 
   ctx.strokeStyle = axisColor;
   ctx.lineWidth = axisWidth;
-  ctx.font = '12px sans-serif';
+  ctx.font = '12px cambria-math';
   ctx.fillStyle = '#222';
 
   // y axis
   if (minX <= 0 && maxX >= 0) {
+    // y axis visible
     const x0 = margin + ((0 - minX) / xRange) * planeSize;
     ctx.beginPath();
     ctx.moveTo(x0, margin);
@@ -225,29 +276,34 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       arrowHeadSize,
     );
   } else {
-    const xEdge = margin;
+    // y axis not visible
     const yTicks = getTickPositions(minY, maxY, step);
+    // If axis is to the right, draw ticks on right edge, else left
+    const axisOnRight = maxX < 0;
+    const xEdge = axisOnRight ? margin + planeSize : margin;
+    const tickDir = axisOnRight ? 1 : -1;
     drawTicksAndLabels(
       ctx,
       yTicks,
       (y) => [
-        xEdge - tickSize,
-        margin + planeSize - ((y - minY) / yRange) * planeSize,
         xEdge,
+        margin + planeSize - ((y - minY) / yRange) * planeSize,
+        xEdge + tickDir * tickSize,
         margin + planeSize - ((y - minY) / yRange) * planeSize,
       ],
       (y) => [
-        xEdge - tickSize * 2,
+        xEdge + tickDir * tickSize * 2,
         margin + planeSize - ((y - minY) / yRange) * planeSize,
       ],
       (y) => y.toString(),
-      'right',
+      axisOnRight ? 'left' : 'right',
       'middle',
     );
   }
 
   // x axis (y=0)
   if (minY <= 0 && maxY >= 0) {
+    // x axis visible
     const y0 = margin + planeSize - ((0 - minY) / yRange) * planeSize;
     ctx.beginPath();
     ctx.moveTo(margin, y0);
@@ -290,8 +346,12 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       arrowHeadSize,
     );
   } else {
-    const yEdge = margin + planeSize;
+    // x axis not visible
     const xTicks = getTickPositions(minX, maxX, step);
+    // If axis is above, draw ticks on top edge, else bottom
+    const axisOnTop = maxY < 0;
+    const yEdge = axisOnTop ? margin : margin + planeSize;
+    const tickDir = axisOnTop ? -1 : 1;
     drawTicksAndLabels(
       ctx,
       xTicks,
@@ -299,57 +359,15 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
         margin + ((x - minX) / xRange) * planeSize,
         yEdge,
         margin + ((x - minX) / xRange) * planeSize,
-        yEdge + tickSize,
+        yEdge + tickDir * tickSize,
       ],
-      (x) => [margin + ((x - minX) / xRange) * planeSize, yEdge + tickSize * 2],
+      (x) => [
+        margin + ((x - minX) / xRange) * planeSize,
+        yEdge + tickDir * tickSize * 2,
+      ],
       (x) => x.toString(),
       'center',
-      'top',
+      axisOnTop ? 'bottom' : 'top',
     );
   }
 }
-
-function CartesianPlane(passProps: Partial<CartesianPlaneProps>) {
-  const props = useMemo(() => {
-    const merged: CartesianPlaneProps = {
-      ...defaultProps,
-      ...passProps,
-    };
-    const adjusted = adjustSquareBound(
-      merged.minX,
-      merged.maxX,
-      merged.minY,
-      merged.maxY,
-    );
-    merged.maxX = adjusted.maxX;
-    merged.maxY = adjusted.maxY;
-    return merged;
-  }, [passProps]);
-
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.reset();
-
-    drawGrid(ctx, props);
-    drawAxis(ctx, props);
-  }, [props]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      width={props.size}
-      height={props.size}
-      aria-label="Cartesian plane"
-      role="img"
-    />
-  );
-}
-
-export default CartesianPlane;
