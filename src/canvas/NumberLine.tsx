@@ -5,7 +5,7 @@ import {
   forwardRef,
   useMemo,
 } from 'react';
-import { getTickPositions, drawArrow, drawTicksAndLabels } from './canvasUtils';
+import { getTickPositions, drawArrow, drawTicksAndLabels } from './utils/canvasUtils';
 
 interface NumberLineProps {
   min: number;

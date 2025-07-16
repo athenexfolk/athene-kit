@@ -1,6 +1,6 @@
-import CanvasExportable from './CanvasExportable';
-import CartesianPlane from './CartesianPlane';
-import NumberLine from './NumberLine';
+import CanvasExportable from './canvas/CanvasExportable';
+import CartesianPlane from './canvas/CartesianPlane';
+import NumberLine from './canvas/NumberLine';
 
 function App() {
   return (

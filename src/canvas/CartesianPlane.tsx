@@ -5,7 +5,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { getTickPositions, drawArrow, drawTicksAndLabels } from './canvasUtils';
+import { getTickPositions, drawArrow, drawTicksAndLabels } from './utils/canvasUtils';
 
 interface Bounds {
   minX: number;
