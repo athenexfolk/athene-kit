@@ -18,6 +18,25 @@ interface Bounds {
   maxY: number;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+export interface DisplayPoint extends Point {
+  color?: string;
+  label?: string;
+}
+
+export interface DisplayLine {
+  points?: Point[];
+  fn?: (x: number) => number;
+  domain?: [number, number];
+  color?: string;
+  width?: number;
+  dash?: number[];
+}
+
 interface CartesianPlaneProps extends Bounds {
   size: number;
   margin: number;
@@ -30,6 +49,8 @@ interface CartesianPlaneProps extends Bounds {
   tickSize: number;
   arrowHeadSize: number;
   axisExtension: number;
+  points: DisplayPoint[];
+  lines?: DisplayLine[];
 }
 
 const defaultProps: CartesianPlaneProps = {
@@ -48,6 +69,7 @@ const defaultProps: CartesianPlaneProps = {
   tickSize: 5,
   arrowHeadSize: 10,
   axisExtension: 20,
+  points: [],
 };
 
 const CartesianPlane = forwardRef<
@@ -95,8 +117,32 @@ const CartesianPlane = forwardRef<
     ctx.reset();
     ctx.save();
     ctx.scale(dpr, dpr);
+    // Clip to graph container
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(
+      props.margin,
+      props.margin,
+      getPlaneSize(props.size, props.margin),
+      getPlaneSize(props.size, props.margin),
+    );
+    ctx.clip();
+    ctx.restore();
     if (props.showGrid) drawGrid(ctx, props);
     drawAxis(ctx, props);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(
+      props.margin,
+      props.margin,
+      getPlaneSize(props.size, props.margin),
+      getPlaneSize(props.size, props.margin),
+    );
+    ctx.clip();
+    drawLines(ctx, props);
+    drawPoints(ctx, props);
+    drawLines(ctx, props);
+    ctx.restore();
     ctx.restore();
   }, [props]);
 
@@ -104,6 +150,28 @@ const CartesianPlane = forwardRef<
 });
 
 export default CartesianPlane;
+function drawPoints(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
+  const { size, margin, minX, maxX, minY, maxY, points } = props;
+  const xRange = maxX - minX;
+  const yRange = maxY - minY;
+  const planeSize = getPlaneSize(size, margin);
+
+  for (const pt of points) {
+    const px = margin + ((pt.x - minX) / xRange) * planeSize;
+    const py = margin + planeSize - ((pt.y - minY) / yRange) * planeSize;
+    ctx.fillStyle = pt.color || '#e53';
+    ctx.beginPath();
+    ctx.arc(px, py, 5, 0, 2 * Math.PI); // 5px radius
+    ctx.fill();
+    if (pt.label) {
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = pt.color || '#222';
+      ctx.fillText(pt.label, px + 8, py + 8);
+    }
+  }
+}
 
 function getPlaneSize(size: number, margin: number) {
   return size - margin * 2;
@@ -325,5 +393,64 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       axisOnTop ? 'bottom' : 'top',
       false,
     );
+  }
+}
+
+function drawLines(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
+  const { size, margin, minX, maxX, minY, maxY, lines } = props;
+  if (!lines) return;
+  const xRange = maxX - minX;
+  const yRange = maxY - minY;
+  const planeSize = getPlaneSize(size, margin);
+
+  for (const line of lines) {
+    ctx.save();
+    ctx.strokeStyle = line.color || '#555';
+    ctx.lineWidth = line.width || 2;
+    if (line.dash) ctx.setLineDash(line.dash);
+
+    if (line.fn && line.domain) {
+      // Draw curve by sampling points, break at discontinuities
+      const [xStart, xEnd] = line.domain;
+      const steps = 200;
+      ctx.beginPath();
+      let started = false;
+      let prevY: number | undefined = undefined;
+      for (let i = 0; i <= steps; i++) {
+        const x = xStart + ((xEnd - xStart) * i) / steps;
+        const y = line.fn(x);
+        if (!isFinite(y)) {
+          started = false;
+          prevY = undefined;
+          continue;
+        }
+        // Break path if jump is too large (vertical asymptote)
+        if (prevY !== undefined && Math.abs(y - prevY) > yRange) {
+          started = false;
+        }
+        const px = margin + ((x - minX) / xRange) * planeSize;
+        const py = margin + planeSize - ((y - minY) / yRange) * planeSize;
+        if (!started) {
+          ctx.moveTo(px, py);
+          started = true;
+        } else {
+          ctx.lineTo(px, py);
+        }
+        prevY = y;
+      }
+      ctx.stroke();
+    } else if (line.points && line.points.length >= 2) {
+      ctx.beginPath();
+      for (let i = 0; i < line.points.length; i++) {
+        const pt = line.points[i];
+        const px = margin + ((pt.x - minX) / xRange) * planeSize;
+        const py = margin + planeSize - ((pt.y - minY) / yRange) * planeSize;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 }
