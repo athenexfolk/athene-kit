@@ -51,6 +51,7 @@ interface CartesianPlaneProps extends Bounds {
   axisExtension: number;
   points: DisplayPoint[];
   lines?: DisplayLine[];
+  dpr?: number;
 }
 
 const defaultProps: CartesianPlaneProps = {
@@ -70,6 +71,7 @@ const defaultProps: CartesianPlaneProps = {
   arrowHeadSize: 10,
   axisExtension: 20,
   points: [],
+  dpr: undefined,
 };
 
 const CartesianPlane = forwardRef<
@@ -105,7 +107,7 @@ const CartesianPlane = forwardRef<
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dpr = 2.5 * (window.devicePixelRatio || 1);
+    const dpr = props.dpr ?? window.devicePixelRatio;
     canvas.width = props.size * dpr;
     canvas.height = props.size * dpr;
     canvas.style.width = `${props.size}px`;
