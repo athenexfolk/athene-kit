@@ -114,10 +114,12 @@ const CartesianPlane = forwardRef<
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Stage 1: Reset and scale for high-DPI
     ctx.reset();
     ctx.save();
     ctx.scale(dpr, dpr);
-    // Clip to graph container
+
+    // Stage 2: Clip to graph container
     ctx.save();
     ctx.beginPath();
     ctx.rect(
@@ -128,8 +130,12 @@ const CartesianPlane = forwardRef<
     );
     ctx.clip();
     ctx.restore();
+
+    // Stage 3: Draw grid and axes (unclipped for labels/ticks)
     if (props.showGrid) drawGrid(ctx, props);
     drawAxis(ctx, props);
+
+    // Stage 4: Clip again for graph content (lines/points)
     ctx.save();
     ctx.beginPath();
     ctx.rect(
@@ -139,9 +145,13 @@ const CartesianPlane = forwardRef<
       getPlaneSize(props.size, props.margin),
     );
     ctx.clip();
+
+    // Stage 5: Draw lines and points (clipped to graph area)
     drawLines(ctx, props);
     drawPoints(ctx, props);
     drawLines(ctx, props);
+
+    // Stage 6: Restore to previous state
     ctx.restore();
     ctx.restore();
   }, [props]);
@@ -150,28 +160,6 @@ const CartesianPlane = forwardRef<
 });
 
 export default CartesianPlane;
-function drawPoints(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
-  const { size, margin, minX, maxX, minY, maxY, points } = props;
-  const xRange = maxX - minX;
-  const yRange = maxY - minY;
-  const planeSize = getPlaneSize(size, margin);
-
-  for (const pt of points) {
-    const px = margin + ((pt.x - minX) / xRange) * planeSize;
-    const py = margin + planeSize - ((pt.y - minY) / yRange) * planeSize;
-    ctx.fillStyle = pt.color || '#e53';
-    ctx.beginPath();
-    ctx.arc(px, py, 5, 0, 2 * Math.PI); // 5px radius
-    ctx.fill();
-    if (pt.label) {
-      ctx.font = '16px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = pt.color || '#222';
-      ctx.fillText(pt.label, px + 8, py + 8);
-    }
-  }
-}
 
 function getPlaneSize(size: number, margin: number) {
   return size - margin * 2;
@@ -393,6 +381,29 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       axisOnTop ? 'bottom' : 'top',
       false,
     );
+  }
+}
+
+function drawPoints(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
+  const { size, margin, minX, maxX, minY, maxY, points } = props;
+  const xRange = maxX - minX;
+  const yRange = maxY - minY;
+  const planeSize = getPlaneSize(size, margin);
+
+  for (const pt of points) {
+    const px = margin + ((pt.x - minX) / xRange) * planeSize;
+    const py = margin + planeSize - ((pt.y - minY) / yRange) * planeSize;
+    ctx.fillStyle = pt.color || '#e53';
+    ctx.beginPath();
+    ctx.arc(px, py, 5, 0, 2 * Math.PI); // 5px radius
+    ctx.fill();
+    if (pt.label) {
+      ctx.font = '12px cambria-math';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = pt.color || '#222';
+      ctx.fillText(pt.label, px + 8, py + 8);
+    }
   }
 }
 
