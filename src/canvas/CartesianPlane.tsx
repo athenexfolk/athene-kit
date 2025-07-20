@@ -5,7 +5,11 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { getTickPositions, drawArrow, drawTicksAndLabels } from './utils/canvasUtils';
+import {
+  getTickPositions,
+  drawArrow,
+  drawTicksAndLabels,
+} from './utils/canvasUtils';
 
 interface Bounds {
   minX: number;
@@ -203,6 +207,7 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       (y) => y.toString(),
       'right',
       'middle',
+      false,
     );
 
     // Top arrow
@@ -246,6 +251,7 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       (y) => y.toString(),
       axisOnRight ? 'left' : 'right',
       'middle',
+      false,
     );
   }
 
@@ -273,6 +279,7 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       (x) => x.toString(),
       'center',
       'top',
+      false,
     );
 
     // Left arrow
@@ -316,6 +323,7 @@ function drawAxis(ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) {
       (x) => x.toString(),
       'center',
       axisOnTop ? 'bottom' : 'top',
+      false,
     );
   }
 }
