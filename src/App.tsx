@@ -1,12 +1,32 @@
-import CartesianPlane from './canvas/CartesianPlane';
+// import CartesianPlane from './canvas/CartesianPlane';
+import InfiniteCartesianPlane from './canvas/InfiniteCartesianPlane';
 
 export default function App() {
   return (
-    <CartesianPlane
-      minX={-10}
-      maxX={10}
-      minY={-10}
-      maxY={10}
+    // <CartesianPlane
+    //   minX={-10}
+    //   maxX={10}
+    //   minY={-10}
+    //   maxY={10}
+    //   points={[{ x: 2, y: 3, color: 'blue', label: 'A' }]}
+    //   onDraw={(ctx, props) => {
+    //     // Draw a custom green circle at (0,0)
+    //     const { size, margin, minX, maxX, minY, maxY } = props;
+    //     const xRange = maxX - minX;
+    //     const yRange = maxY - minY;
+    //     const planeSize = size - margin * 2;
+    //     const px = margin + ((0 - minX) / xRange) * planeSize;
+    //     const py = margin + planeSize - ((0 - minY) / yRange) * planeSize;
+    //     ctx.save();
+    //     ctx.fillStyle = 'green';
+    //     ctx.beginPath();
+    //     ctx.arc(px, py, 12, 0, 2 * Math.PI);
+    //     ctx.fill();
+    //     ctx.restore();
+    //   }}
+    // />
+    <InfiniteCartesianPlane
+    size={500}
       points={[{ x: 2, y: 3, color: 'blue', label: 'A' }]}
       onDraw={(ctx, props) => {
         // Draw a custom green circle at (0,0)

@@ -37,7 +37,7 @@ export interface DisplayLine {
   dash?: number[];
 }
 
-interface CartesianPlaneProps extends Bounds {
+export interface CartesianPlaneProps extends Bounds {
   size: number;
   margin: number;
   step: number;
