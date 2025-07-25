@@ -19,6 +19,7 @@ interface NumberLineProps {
   arrowHeadSize: number;
   axisExtension: number;
   showArrows: boolean;
+  onDraw?: (ctx: CanvasRenderingContext2D, props: NumberLineProps) => void;
 }
 
 const defaultProps: NumberLineProps = {
@@ -68,6 +69,9 @@ const NumberLine = forwardRef<HTMLCanvasElement, Partial<NumberLineProps>>(
       ctx.save();
       ctx.scale(dpr, dpr);
       drawNumberLine(ctx, props);
+      if (props.onDraw) {
+        props.onDraw(ctx, props);
+      }
       ctx.restore();
     }, [props]);
 

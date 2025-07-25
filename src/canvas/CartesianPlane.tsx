@@ -52,6 +52,7 @@ interface CartesianPlaneProps extends Bounds {
   points: DisplayPoint[];
   lines?: DisplayLine[];
   dpr?: number;
+  onDraw?: (ctx: CanvasRenderingContext2D, props: CartesianPlaneProps) => void;
 }
 
 const defaultProps: CartesianPlaneProps = {
@@ -153,6 +154,10 @@ const CartesianPlane = forwardRef<
     drawPoints(ctx, props);
     drawLines(ctx, props);
 
+    // Stage 6: Custom user drawing (after all built-in drawing)
+    if (props.onDraw) {
+      props.onDraw(ctx, props);
+    }
     // Stage 6: Restore to previous state
     ctx.restore();
     ctx.restore();
