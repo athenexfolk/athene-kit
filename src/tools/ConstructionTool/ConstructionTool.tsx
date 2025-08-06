@@ -26,12 +26,27 @@ import {
   isPointInCompassPencil,
   isPointInCompassLeg,
 } from './compass';
+
 import type { CompassState } from './compass';
 
-export default function ConstructionTool() {
+type ConstructionToolProps = {
+  width?: number;
+  height?: number;
+  dpr?: number;
+};
+
+export default function ConstructionTool({
+  width = 600,
+  height = 400,
+  dpr,
+}: ConstructionToolProps) {
   // --- State and refs ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const toolCanvasRef = useRef<HTMLCanvasElement>(null);
+  const DPR =
+    dpr ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
+  const CANVAS_WIDTH = width;
+  const CANVAS_HEIGHT = height;
   const [drawing, setDrawing] = useState(false);
   const [lastPos, setLastPos] = useState<Point | null>(null);
   const [activeTool, setActiveTool] = useState<'pen' | 'ruler' | 'compass'>(
@@ -57,6 +72,27 @@ export default function ConstructionTool() {
     ctx.stroke();
   };
 
+  // --- DPR adaptation for both canvases ---
+  useEffect(() => {
+    const adaptCanvas = (canvas: HTMLCanvasElement | null) => {
+      if (!canvas) return;
+      // Set actual pixel size
+      canvas.width = CANVAS_WIDTH * DPR;
+      canvas.height = CANVAS_HEIGHT * DPR;
+      // Set CSS size
+      canvas.style.width = `${CANVAS_WIDTH}px`;
+      canvas.style.height = `${CANVAS_HEIGHT}px`;
+      // Scale context
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
+        ctx.scale(DPR, DPR);
+      }
+    };
+    adaptCanvas(canvasRef.current);
+    adaptCanvas(toolCanvasRef.current);
+  }, [DPR, CANVAS_WIDTH, CANVAS_HEIGHT]);
+
   // Draw the compass and its handles on the tool canvas
   const drawCompass = (
     ctx: CanvasRenderingContext2D,
@@ -71,7 +107,8 @@ export default function ConstructionTool() {
     const leg = getCompassLeg(compass);
     ctx.save();
     ctx.strokeStyle = '#333';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(pin.x, pin.y);
     ctx.lineTo(pencil.x, pencil.y);
@@ -262,13 +299,19 @@ export default function ConstructionTool() {
     });
   };
   const handleCompassLeg = (pos: Point, compass = compassState.compass) => {
-    // Start adjusting radius
+    // Start adjusting radius and angle
     const { x, y } = compass.pin;
     const mouseDist = Math.hypot(pos.x - x, pos.y - y);
+    const mouseAngle = Math.atan2(pos.y - y, pos.x - x);
     dispatchCompass({ type: 'setDraggingLeg', draggingLeg: true });
     dispatchCompass({
       type: 'setAdjustStart',
-      adjustStart: { radius0: compass.radius, mouseDist0: mouseDist },
+      adjustStart: {
+        radius0: compass.radius,
+        mouseDist0: mouseDist,
+        angle0: compass.angle,
+        mouseAngle0: mouseAngle,
+      },
     });
   };
 
@@ -311,7 +354,18 @@ export default function ConstructionTool() {
       if (isPointInCompassPencil(pos.x, pos.y, compass)) {
         handleCompassPencil(pos, compass);
         setDrawing(true);
-        setLastPos(pos);
+        // Set lastPos to a point on the leg's circle at the current pencil angle
+        const pin = compass.pin;
+        const leg = getCompassLeg(compass);
+        const legRadius = Math.hypot(leg.x - pin.x, leg.y - pin.y);
+        const pencilAngle = Math.atan2(
+          getCompassPencil(compass).y - pin.y,
+          getCompassPencil(compass).x - pin.x,
+        );
+        setLastPos({
+          x: pin.x + legRadius * Math.cos(pencilAngle),
+          y: pin.y + legRadius * Math.sin(pencilAngle),
+        });
         return;
       }
       if (isPointInCompassLeg(pos.x, pos.y, compass)) {
@@ -398,52 +452,85 @@ export default function ConstructionTool() {
       if (compassState.draggingPencil && compassState.rotateStart) {
         const { x, y } = compass.pin;
         const mouseAngle2 = Math.atan2(pos.y - y, pos.x - x);
+        const newAngle =
+          compassState.rotateStart.angle0 +
+          (mouseAngle2 - compassState.rotateStart.mouseAngle0);
         dispatchCompass({
           type: 'setCompass',
           compass: {
             ...compass,
-            angle:
-              compassState.rotateStart.angle0 +
-              (mouseAngle2 - compassState.rotateStart.mouseAngle0),
+            angle: newAngle,
           },
         });
-        // Optionally: draw arc here if drawing
+        // Draw arc by interpolating points between lastPos and current angle, always on leg's circle
         if (drawing && lastPos) {
-          // Draw arc segment from lastPos to current
-          drawLine(
-            lastPos,
-            getCompassPencil({
-              ...compass,
-              angle:
-                compassState.rotateStart.angle0 +
-                (mouseAngle2 - compassState.rotateStart.mouseAngle0),
-            }),
+          const pin = compass.pin;
+          const leg = getCompassLeg(compass);
+          const legRadius = Math.hypot(leg.x - pin.x, leg.y - pin.y);
+          const lastAngle = Math.atan2(lastPos.y - pin.y, lastPos.x - pin.x);
+          let startAngle = lastAngle;
+          let endAngle = newAngle;
+          // Ensure shortest direction
+          if (Math.abs(endAngle - startAngle) > Math.PI) {
+            if (endAngle > startAngle) {
+              startAngle += 2 * Math.PI;
+            } else {
+              endAngle += 2 * Math.PI;
+            }
+          }
+          const steps = Math.max(
+            4,
+            Math.ceil(Math.abs(endAngle - startAngle) / (Math.PI / 32)),
           );
+          let prev = lastPos;
+          for (let i = 1; i <= steps; ++i) {
+            const t = i / steps;
+            const theta = startAngle + (endAngle - startAngle) * t;
+            const next = {
+              x: pin.x + legRadius * Math.cos(theta),
+              y: pin.y + legRadius * Math.sin(theta),
+            };
+            drawLine(prev, next);
+            prev = next;
+          }
         }
-        setLastPos(
-          getCompassPencil({
-            ...compass,
-            angle:
-              compassState.rotateStart.angle0 +
-              (mouseAngle2 - compassState.rotateStart.mouseAngle0),
-          }),
-        );
+        // Set lastPos to the new point on the leg's circle at the new angle
+        const pin = compass.pin;
+        const leg = getCompassLeg(compass);
+        const legRadius = Math.hypot(leg.x - pin.x, leg.y - pin.y);
+        setLastPos({
+          x: pin.x + legRadius * Math.cos(newAngle),
+          y: pin.y + legRadius * Math.sin(newAngle),
+        });
         return;
       }
       // Adjust leg (radius)
       if (compassState.draggingLeg && compassState.adjustStart) {
         const { x, y } = compass.pin;
         const mouseDist = Math.hypot(pos.x - x, pos.y - y);
+        const mouseAngle = Math.atan2(pos.y - y, pos.x - x);
+        // If adjustStart has angle0/mouseAngle0, use them, else fallback to old behavior
+        const adjustStart = compassState.adjustStart;
+        let newAngle = compass.angle;
+        if (
+          adjustStart.angle0 !== undefined &&
+          adjustStart.mouseAngle0 !== undefined
+        ) {
+          newAngle =
+            adjustStart.angle0 + (mouseAngle - adjustStart.mouseAngle0);
+        } else {
+          newAngle = mouseAngle;
+        }
         const newRadius = Math.max(
           10,
-          compassState.adjustStart.radius0 +
-            (mouseDist - compassState.adjustStart.mouseDist0),
+          adjustStart.radius0 + (mouseDist - adjustStart.mouseDist0),
         );
         dispatchCompass({
           type: 'setCompass',
           compass: {
             ...compass,
             radius: newRadius,
+            angle: newAngle,
           },
         });
         return;
@@ -471,6 +558,11 @@ export default function ConstructionTool() {
   };
 
   const handleToolMouseLeave = () => {
+    // For compass pencil rotation, do not stop drawing or reset lastPos on mouse leave
+    if (activeTool === 'compass' && compassState.draggingPencil) {
+      // Do nothing, allow arc drawing to continue
+      return;
+    }
     if (drawing) {
       setLastPos(null);
     }
@@ -484,16 +576,17 @@ export default function ConstructionTool() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear in device pixels, but drawing is in CSS pixels
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.save();
     drawRuler(ctx, rulerState, activeTool);
     drawCompass(ctx, compassState, activeTool);
     ctx.restore();
-  }, [activeTool, rulerState, compassState]);
+  }, [activeTool, rulerState, compassState, DPR, CANVAS_WIDTH, CANVAS_HEIGHT]);
 
   return (
     <>
-      <div style={{ marginBottom: 8 }}>
+      <div className="mx-auto flex justify-center items-center gap-2 p-2">
         <button
           onClick={() => setActiveTool('pen')}
           style={{ fontWeight: activeTool === 'pen' ? 'bold' : undefined }}
@@ -524,41 +617,26 @@ export default function ConstructionTool() {
         </button>
       </div>
       <div
+        className="relative mx-auto"
         style={{
-          position: 'relative',
-          width: 600,
-          height: 400,
+          width: CANVAS_WIDTH,
+          height: CANVAS_HEIGHT,
         }}
       >
         <canvas
           ref={canvasRef}
-          width={600}
-          height={400}
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
+          className="pointer-events-none absolute top-0 left-0 z-1 touch-none rounded-xl bg-white shadow-lg"
           style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            zIndex: 1,
-            border: '1px solid #ccc',
-            background: '#eee',
-            borderRadius: 8,
-            boxShadow: '0 2px 8px #0001',
             cursor: rulerState.nearRuler ? 'pointer' : 'crosshair',
-            touchAction: 'none',
-            pointerEvents: 'none',
           }}
         />
         <canvas
           ref={toolCanvasRef}
-          width={600}
-          height={400}
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            zIndex: 2,
-            pointerEvents: 'auto',
-          }}
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
+          className="pointer-events-auto absolute top-0 left-0 z-2"
           onMouseDown={handleToolMouseDown}
           onMouseUp={handleToolMouseUp}
           onMouseLeave={handleToolMouseLeave}
