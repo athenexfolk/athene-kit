@@ -5,7 +5,7 @@ import {
   DropdownList,
   DropdownItem,
 } from './dropdown.styled';
-import { Icon } from '../icon';
+import Icon from '../icon';
 
 export interface DropdownOption {
   label: string;
@@ -19,7 +19,7 @@ export interface DropdownProps {
   placeholder?: string;
 }
 
-export const Dropdown: React.FC<DropdownProps> = ({
+const Dropdown: React.FC<DropdownProps> = ({
   options,
   value,
   onChange,
@@ -79,3 +79,5 @@ export const Dropdown: React.FC<DropdownProps> = ({
     </DropdownContainer>
   );
 };
+
+export default Dropdown;

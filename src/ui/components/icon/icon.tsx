@@ -8,10 +8,6 @@ export interface IconProps extends React.HTMLAttributes<HTMLElement> {
   style?: React.CSSProperties;
 }
 
-/**
- * Material Symbol Icon component
- * Usage: <Icon name="home" />
- */
 const Icon: React.FC<IconProps> = ({
   name,
   size = 24,

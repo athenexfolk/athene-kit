@@ -1,4 +1,4 @@
-import { Box, Container, Flex, Grid, Stack } from './primitives';
+import { Box, Container, Flex, Grid, Stack } from '../layout/primitives';
 
 const SampleBox = ({ o }: { o?: number }) => (
   <Box p={4} radius={4} borderWidth={2}>

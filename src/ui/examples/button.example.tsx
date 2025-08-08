@@ -1,4 +1,4 @@
-import Button from './button';
+import Button from '../components/button';
 import { Container, Flex } from '../layout/primitives';
 
 export default function ButtonExamples() {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Dropdown, type DropdownOption } from './dropdown';
 import { Container } from '../layout/primitives';
+import Dropdown, { type DropdownOption } from '../components/dropdown';
 
 const options: DropdownOption[] = [
   { label: 'Option 1', value: '1' },

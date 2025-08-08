@@ -1,7 +1,6 @@
 import React, { forwardRef, memo } from 'react';
 import { StyledButton } from './button.styled';
-import type { IconProps } from '../icon/icon';
-import Icon from '../icon/icon';
+import Icon, { type IconProps } from '../icon';
 
 export type ButtonProps = {
   loading?: boolean;

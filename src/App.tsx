@@ -1,9 +1,7 @@
-import { Container, Stack, Flex } from './ui/layout';
-import { ATKButton } from './ui/button';
-import { Icon } from './ui/icon';
-import ButtonExamples from './ui/button/button.example';
-import LayoutExamples from './ui/layout/layout.example';
-import DropdownExamples from './ui/dropdown/dropdown.example';
+import { Button, Container, Flex, Icon, Stack } from './ui';
+import ButtonExamples from './ui/examples/button.example';
+import DropdownExamples from './ui/examples/dropdown.example';
+import LayoutExamples from './ui/examples/layout.example';
 
 export default function App() {
   return (
@@ -27,12 +25,12 @@ export default function App() {
             A modern UI kit for building beautiful web apps with React.
           </p>
           <Flex gap={2} justify="center">
-            <ATKButton variant="primary" size="lg">
+            <Button variant="primary" size="lg">
               Get Started
-            </ATKButton>
-            <ATKButton variant="secondary" size="lg">
+            </Button>
+            <Button variant="secondary" size="lg">
               Docs
-            </ATKButton>
+            </Button>
           </Flex>
         </Stack>
       </Container>
