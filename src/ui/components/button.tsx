@@ -1,6 +1,5 @@
 import React, { forwardRef, memo } from 'react';
-import { StyledButton } from './button.styled';
-import Icon, { type IconProps } from '../icon';
+import Icon, { type IconProps } from './icon';
 
 export type ButtonProps = {
   loading?: boolean;
@@ -42,23 +41,39 @@ const Button = memo(
       const hasIcon = !!icon;
       const isIconOnly = hasIcon && !children && !loadingText;
       return (
-        <StyledButton
+        <button
           ref={ref}
           type={type}
-          $variant={variant}
-          $size={size}
-          $loading={loading}
           disabled={disabled || loading}
           aria-busy={loading}
           aria-disabled={disabled || loading}
           tabIndex={tabIndex}
           onClick={onClick}
-          className={className}
           aria-label={
             isIconOnly
               ? ariaLabel || (typeof icon === 'string' ? icon : undefined)
               : undefined
           }
+          className={[
+            // Base styles
+            'inline-flex items-center justify-center gap-2 rounded font-medium transition-colors duration-200',
+            // Variant styles
+            variant === 'primary'
+              ? 'hover:bg-neutral95 hover:text-neutral0 bg-neutral100 border-2'
+              : 'hover:bg-neutral95 hover:text-neutral0 bg-neutral100 border-2 border-transparent',
+            // Size styles
+            size === 'sm'
+              ? 'px-3 py-1 text-sm'
+              : size === 'lg'
+                ? 'px-7 py-3 text-xl'
+                : 'px-5 py-2 text-base',
+            // Loading/disabled styles
+            disabled || loading ? 'pointer-events-none opacity-60' : '',
+            loading ? 'cursor-wait opacity-70' : 'cursor-pointer',
+            className,
+          ]
+            .filter(Boolean)
+            .join(' ')}
           {...rest}
         >
           {loading ? (
@@ -67,12 +82,8 @@ const Button = memo(
                 <Icon
                   name="progress_activity"
                   size={hasIcon ? iconSize : 16}
-                  style={{
-                    marginRight: loadingText || children ? 8 : 0,
-                    verticalAlign: 'middle',
-                  }}
                   aria-hidden="true"
-                  className="atk-btn-loading-icon"
+                  className="animate-spin"
                 />
               )}
               {loadingText ? (
@@ -86,23 +97,21 @@ const Button = memo(
                   name={icon}
                   size={iconSize}
                   color={iconColor}
-                  style={{ marginRight: children ? 8 : 0 }}
                   aria-hidden={isIconOnly ? undefined : true}
                 />
               )}
               {children}
               {hasIcon && iconPosition === 'right' && (
                 <Icon
-                  name={icon!}
+                  name={icon}
                   size={iconSize}
                   color={iconColor}
-                  style={{ marginLeft: children ? 8 : 0 }}
                   aria-hidden={isIconOnly ? undefined : true}
                 />
               )}
             </>
           )}
-        </StyledButton>
+        </button>
       );
     },
   ),

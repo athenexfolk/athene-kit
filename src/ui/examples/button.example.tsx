@@ -1,26 +1,22 @@
 import Button from '../components/button';
-import { Container, Flex } from '../layout/primitives';
 
 export default function ButtonExamples() {
   return (
-    <Container
-      p={4}
-      style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-    >
-      <Flex gap={2} align="start">
+    <div className="flex flex-col gap-4 p-8">
+      <div className="flex flex-wrap items-start gap-4">
         <Button>Default</Button>
         <Button variant="secondary">Secondary</Button>
         <Button disabled>Disabled</Button>
         <Button loading loadingText="Loading...">
           Loading
         </Button>
-      </Flex>
-      <Flex gap={2} align="start">
+      </div>
+      <div className="flex flex-wrap items-start gap-4">
         <Button size="sm">Small</Button>
         <Button size="md">Medium</Button>
         <Button size="lg">Large</Button>
-      </Flex>
-      <Flex gap={2} align="start">
+      </div>
+      <div className="flex flex-wrap items-start gap-4">
         <Button icon="home">Home</Button>
         <Button icon="search" variant="secondary">
           Search
@@ -32,7 +28,7 @@ export default function ButtonExamples() {
         <Button icon="download" loading loadingText="Downloading...">
           Download
         </Button>
-      </Flex>
-    </Container>
+      </div>
+    </div>
   );
 }

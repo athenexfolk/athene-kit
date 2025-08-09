@@ -5,6 +5,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
+import { Button } from '../ui';
 
 interface CanvasExportableProps {
   children: (canvasRef: RefObject<HTMLCanvasElement | null>) => ReactNode;
@@ -35,15 +36,11 @@ function CanvasExportable({
   };
 
   return (
-    <div className="flex flex-col items-center">
-      {children(canvasRef)}
-      <button
-        onClick={handleExport}
-        className="mx-auto rounded bg-stone-900 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50 hover:brightness-90"
-        disabled={!canvasAvailable}
-      >
+    <div className="flex flex-col items-center gap-4 overflow-auto rounded border-2 p-4">
+      <Button onClick={handleExport} disabled={!canvasAvailable}>
         {buttonLabel}
-      </button>
+      </Button>
+      <div className="mx-auto rounded border-2">{children(canvasRef)}</div>
     </div>
   );
 }

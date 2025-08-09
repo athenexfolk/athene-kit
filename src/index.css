@@ -1,4 +1,6 @@
-:root {
+@import 'tailwindcss';
+
+@theme {
   --color-neutral0: #000000;
   --color-neutral10: #1a1a1a;
   --color-neutral20: #2a2a2a;
@@ -17,16 +19,6 @@
 body {
   background-color: var(--color-neutral100);
   color: var(--color-neutral0);
-}
-
-.atk-btn-loading-icon {
-  display: inline-block;
-  animation: atk-spin 1s linear infinite;
-}
-@keyframes atk-spin {
-  100% {
-    transform: rotate(360deg);
-  }
 }
 
 @font-face {

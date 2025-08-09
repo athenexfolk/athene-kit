@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import CartesianPlane from './CartesianPlane';
 import type {
   DisplayPoint,
@@ -72,25 +72,46 @@ export default function InfiniteCartesianPlane({
     return niceFraction * base;
   }
 
-  function zoom(factor: number, center?: { x: number; y: number }) {
-    const { minX, maxX, minY, maxY } = view;
-    // Use provided center or default to view center
-    const cx = center ? center.x : (minX + maxX) / 2;
-    const cy = center ? center.y : (minY + maxY) / 2;
-    let xRange = ((maxX - minX) * factor) / 2;
-    let yRange = ((maxY - minY) * factor) / 2;
-    // Clamp zoom range
-    const minRange = 0.01; // minimum visible range (zoom in limit)
-    const maxRange = 1000; // maximum visible range (zoom out limit)
-    xRange = Math.max(minRange, Math.min(xRange, maxRange));
-    yRange = Math.max(minRange, Math.min(yRange, maxRange));
-    setView({
-      minX: cx - xRange,
-      maxX: cx + xRange,
-      minY: cy - yRange,
-      maxY: cy + yRange,
+  const zoom = useCallback((factor: number, center?: { x: number; y: number }) => {
+    setView((prev) => {
+      const { minX, maxX, minY, maxY } = prev;
+      const oldWidth = maxX - minX;
+      const oldHeight = maxY - minY;
+      const newWidth = oldWidth * factor;
+      const newHeight = oldHeight * factor;
+      // Clamp zoom range
+      const minRange = 0.01;
+      const maxRange = 1000;
+      const clampedWidth = Math.max(minRange, Math.min(newWidth, maxRange));
+      const clampedHeight = Math.max(minRange, Math.min(newHeight, maxRange));
+      if (center) {
+        // Calculate the relative position of the center in the old view
+        const relX = (center.x - minX) / oldWidth;
+        const relY = (center.y - minY) / oldHeight;
+        // After zoom, keep center.x/y at the same screen position
+        const newMinX = center.x - relX * clampedWidth;
+        const newMaxX = newMinX + clampedWidth;
+        const newMinY = center.y - relY * clampedHeight;
+        const newMaxY = newMinY + clampedHeight;
+        return {
+          minX: newMinX,
+          maxX: newMaxX,
+          minY: newMinY,
+          maxY: newMaxY,
+        };
+      } else {
+        // Default: zoom to center
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        return {
+          minX: cx - clampedWidth / 2,
+          maxX: cx + clampedWidth / 2,
+          minY: cy - clampedHeight / 2,
+          maxY: cy + clampedHeight / 2,
+        };
+      }
     });
-  }
+  }, []);
 
   function pan(dx: number, dy: number) {
     setView((v) => ({
@@ -126,28 +147,38 @@ export default function InfiniteCartesianPlane({
     const dy = dyPx * (yRange / planeSize);
     pan(dx, dy);
   }
-  function onWheel(e: React.WheelEvent) {
-    if (e.cancelable) {
-      e.preventDefault();
+  // Ref for the container div
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Wheel handler for zooming with Ctrl, attached natively for passive: false
+  useEffect(() => {
+    const div = containerRef.current;
+    if (!div) return;
+    function handleWheel(e: WheelEvent) {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const rect = div!.getBoundingClientRect();
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        const factor = e.deltaY < 0 ? 0.8 : 1.25;
+        const planeSize = size - margin * 2;
+        const x = view.minX + ((px - margin) / planeSize) * (view.maxX - view.minX);
+        const y = view.maxY - ((py - margin) / planeSize) * (view.maxY - view.minY);
+        zoom(factor, { x, y });
+      }
     }
-    // Snap zoom: each wheel event is a fixed step
-    const factor = e.deltaY < 0 ? 0.8 : 1.25;
-    // Get mouse position relative to canvas
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
-    // Convert to coordinate space
-    const planeSize = size - margin * 2;
-    const x = view.minX + ((px - margin) / planeSize) * (view.maxX - view.minX);
-    const y = view.maxY - ((py - margin) / planeSize) * (view.maxY - view.minY);
-    zoom(factor, { x, y });
-  }
+    div.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      div.removeEventListener('wheel', handleWheel);
+    };
+  }, [size, margin, view, zoom]);
 
   const xRange = view.maxX - view.minX;
   const gridStep = getNiceStep(xRange);
 
   return (
     <div
+      ref={containerRef}
       style={{
         userSelect: 'none',
         touchAction: 'none',
@@ -162,7 +193,7 @@ export default function InfiniteCartesianPlane({
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
       onMouseMove={onMouseMove}
-      onWheel={onWheel}
+      tabIndex={0} // allow div to receive keyboard events for ctrlKey
     >
       <div style={{ marginBottom: 8 }}>
         <button onClick={() => zoom(0.8)}>Zoom In</button>
