@@ -1,3 +1,5 @@
+import ConstructionTool from "../tools/ConstructionTool/ConstructionTool";
+
 export default function DocHomePage() {
   return (
     <div className="p-8">
@@ -6,6 +8,7 @@ export default function DocHomePage() {
         Welcome to the documentation site. Please select a component from the
         sidebar.
       </p>
+      <ConstructionTool />
     </div>
   );
 }

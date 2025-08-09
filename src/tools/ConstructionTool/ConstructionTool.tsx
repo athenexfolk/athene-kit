@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useReducer } from 'react';
 import { getMousePos } from './utils';
+import { projectPointToLine, distance } from './snapUtils';
 import type { Point } from './point';
 import {
   getRulerOrigin,
@@ -281,11 +282,43 @@ export default function ConstructionTool({
   };
 
   // --- Compass interaction handlers ---
+  // --- Snap helpers ---
+  const GRID_SPACING = 10;
+  const SNAP_DIST = 12; // px
+  function snapToGrid(p: Point): Point {
+    return {
+      x: Math.round(p.x / GRID_SPACING) * GRID_SPACING,
+      y: Math.round(p.y / GRID_SPACING) * GRID_SPACING,
+    };
+  }
+
+  function getSnappedPinPos(pos: Point): Point {
+    // Snap to grid first
+    const grid = snapToGrid(pos);
+    if (distance(pos, grid) < SNAP_DIST) return grid;
+    // Snap to ruler line if close
+    const ruler = rulerState.ruler;
+    const angle = ruler.angle;
+    const cx = ruler.x + ruler.width / 2;
+    const cy = ruler.y + ruler.height / 2;
+    const dx = (ruler.width / 2) * Math.cos(angle);
+    const dy = (ruler.width / 2) * Math.sin(angle);
+    const a = { x: cx - dx, y: cy - dy };
+    const b = { x: cx + dx, y: cy + dy };
+    const proj = projectPointToLine(pos, a, b);
+    if (distance(pos, proj) < SNAP_DIST) {
+      return proj;
+    }
+    return pos;
+  }
+
   const handleCompassPin = (pos: Point, compass = compassState.compass) => {
+    // Snap pin to ruler line if close
+    const snapped = getSnappedPinPos(pos);
     dispatchCompass({ type: 'setDraggingPin', draggingPin: true });
     dispatchCompass({
       type: 'setDragOffset',
-      dragOffset: { x: pos.x - compass.pin.x, y: pos.y - compass.pin.y },
+      dragOffset: { x: snapped.x - compass.pin.x, y: snapped.y - compass.pin.y },
     });
   };
   const handleCompassPencil = (pos: Point, compass = compassState.compass) => {
@@ -401,12 +434,17 @@ export default function ConstructionTool({
         return;
       }
       if (rulerState.draggingRuler && rulerState.dragOffset) {
+        // Snap ruler origin to grid
+        const snapped = snapToGrid({
+          x: pos.x - rulerState.dragOffset.x,
+          y: pos.y - rulerState.dragOffset.y,
+        });
         dispatchRuler({
           type: 'setRuler',
           ruler: {
             ...ruler,
-            x: pos.x - rulerState.dragOffset.x,
-            y: pos.y - rulerState.dragOffset.y,
+            x: snapped.x,
+            y: snapped.y,
           },
         });
         return;
@@ -436,14 +474,16 @@ export default function ConstructionTool({
       const compass = compassState.compass;
       // Drag pin
       if (compassState.draggingPin && compassState.dragOffset) {
+        // Snap pin to ruler line if close
+        const snapped = getSnappedPinPos({
+          x: pos.x - compassState.dragOffset.x,
+          y: pos.y - compassState.dragOffset.y,
+        });
         dispatchCompass({
           type: 'setCompass',
           compass: {
             ...compass,
-            pin: {
-              x: pos.x - compassState.dragOffset.x,
-              y: pos.y - compassState.dragOffset.y,
-            },
+            pin: snapped,
           },
         });
         return;
@@ -571,12 +611,46 @@ export default function ConstructionTool({
     resetCompassManipulation();
   };
 
+  // --- Draw grid lines ---
+  function drawGrid(ctx: CanvasRenderingContext2D, width: number, height: number, spacing = 10, majorEvery = 5) {
+    ctx.save();
+    for (let x = 0; x <= width; x += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.strokeStyle = (x / spacing) % majorEvery === 0 ? '#bdbdbd' : '#e0e0e0';
+      ctx.lineWidth = (x / spacing) % majorEvery === 0 ? 1.5 : 1;
+      ctx.stroke();
+    }
+    for (let y = 0; y <= height; y += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.strokeStyle = (y / spacing) % majorEvery === 0 ? '#bdbdbd' : '#e0e0e0';
+      ctx.lineWidth = (y / spacing) % majorEvery === 0 ? 1.5 : 1;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Draw grid on the main canvas (innermost layer)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.save();
+    drawGrid(ctx, CANVAS_WIDTH, CANVAS_HEIGHT, 10, 5);
+    ctx.restore();
+  }, [DPR, CANVAS_WIDTH, CANVAS_HEIGHT]);
+
+  // Draw tools (ruler, compass) on the tool canvas (above grid)
   useEffect(() => {
     const canvas = toolCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    // Clear in device pixels, but drawing is in CSS pixels
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.save();
     drawRuler(ctx, rulerState, activeTool);
